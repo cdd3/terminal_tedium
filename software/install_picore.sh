@@ -56,6 +56,18 @@ sudo cp $HOME/terminal_tedium/software/externals/*.pd_linux /usr/local/lib/pd/ex
 echo ""
 
 
+echo "copy terminal tedium externals... ---------------------------------------"
+echo ""
+cd $HOME 
+rm -r -f $HOME/tt_patches >/dev/null 2>&1
+git clone https://github.com/cdd3/tt_patches
+#cd $HOME/terminal_tedium
+#git pull origin
+
+
+echo ""
+
+
 #echo " > abl_link~"
 #cd $HOME/terminal_tedium/software/externals/abl_link/
 #sudo mv abl_link~.pd_linux $HOME/$PD_VERSION/extra/
