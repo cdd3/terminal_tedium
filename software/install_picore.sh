@@ -108,17 +108,19 @@ echo "boot/config ... ---------------------------------------------------------"
 mount /dev/mmcblk0p1
 
 sudo cp /mnt/mmcblk0p1/config.txt /mnt/mmcblk0p1/config.txt.old #backup original config.txt
-sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only (still doesn't work, don't know why yet maybe vfat?)
+sudo chmod 440 /mnt/mmcblk0p1/config.txt.bak	#make backup read-only (still doesn't work, don't know why yet maybe vfat?)
 sudo cp $HOME/terminal_tedium/software/config_picore.txt /mnt/mmcblk0p1/config.txt
 
 # for some reason this isn't working yet
-#sudo awk '//{$10="waitusb=10"}{print}' /mnt/mmcblk0p1/cmdline3.txt > /mnt/mmcblk0p1/cmdline3.txt	#add startup delay for slow usb drives
+#add startup delay for slow usb drives
+sudo cp /mnt/mmcblk0p1/cmdline3.txt /mnt/mmcblk0p1/cmdline3.txt.bak
+awk '//{$10="waitusb=10"}{print}' /mnt/mmcblk0p1/cmdline3.txt > cmdline3.tmp
+sudo mv cmdline3.tmp /mnt/mmcblk0p1/cmdline3.txt
 
 # change sda1 to automatically mout at startup
 # apperantely the shell won't let you pipe straight to /etc/fstab so write a tmp file
 awk '/\/dev\/sda1/{$4="auto,users,exec,umask=000"}{print}' /etc/fstab > fstab.tmp	
 sudo mv fstab.tmp /etc/fstab
-rm -f fstab.tmp
 
 echo ""
 echo ""
