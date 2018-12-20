@@ -56,7 +56,7 @@ sudo cp $HOME/terminal_tedium/software/externals/*.pd_linux /usr/local/lib/pd/ex
 echo ""
 
 
-echo "copy terminal tedium externals... ---------------------------------------"
+echo "clone terminal tedium patches... ---------------------------------------"
 echo ""
 cd $HOME 
 rm -r -f $HOME/tt_patches >/dev/null 2>&1
@@ -80,12 +80,7 @@ echo ""
 echo ""
 
 echo "configuring startup scripts... ------------------------------------------"
-
-
-sudo cp $HOME/terminal_tedium/software/pdpd $HOME/startpd.sh
-sudo chmod +x $HOME/startpd.sh  
-sudo echo "$HOME/startpd.sh" >> /opt/bootlocal.sh  # run startup script for pd on boot
-
+echo ""
 
 if [[ "$HARDWARE_VERSION" == 'armv6l' ]]; then
 	cp $HOME/terminal_tedium/software/rt_start_armv6 $HOME/terminal_tedium/software/rt_start
@@ -97,16 +92,15 @@ sudo chmod +x $HOME/terminal_tedium/software/rt_start
 
 sudo echo "$HOME/terminal_tedium/software/rt_start" >> /opt/bootlocal.sh
 
+cp $HOME/terminal_tedium/software/pdpd $HOME/startpd.sh
+sudo chmod +x $HOME/startpd.sh  
+
+sudo echo "$HOME/startpd.sh" >> /opt/bootlocal.sh  # run startup script for pd on boot
+
 #echo ""
 #echo ""
 
 echo "boot/config ... ---------------------------------------------------------"
-
-#sudo cp /home/pi/terminal_tedium/software/config.txt /boot/config.txt 
-
-#cd $HOME/terminal_tedium/software/
-
-#wget https://raw.githubusercontent.com/cdd3/tt_picore_setup/master/config.txt
 
 mount /dev/mmcblk0p1
 
@@ -144,7 +138,6 @@ echo "done ... cleaning up ----------------------------------------------------"
 
 echo "Saving System State  ----------------------------------------------------"
 
-#sudo echo "$HOME/startpd.sh" >> /opt/.filetool.lst
 sudo echo "/etc/asound.conf" >> /opt/.filetool.lst
 sudo echo '/usr/local/lib/pd/extra' >> /opt/.filetool.lst
 
