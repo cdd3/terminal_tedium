@@ -108,11 +108,17 @@ echo "boot/config ... ---------------------------------------------------------"
 mount /dev/mmcblk0p1
 
 sudo cp /mnt/mmcblk0p1/config.txt /mnt/mmcblk0p1/config.txt.old #backup original config.txt
-sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only
+sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only (still doesn't work, don't know why yet)
 sudo cp $HOME/terminal_tedium/software/config_picore.txt /mnt/mmcblk0p1/config.txt
 
-sudo awk '//{$10="waitusb=10"}{print}' /mnt/mmcblk0p1/cmdline3.txt > /mnt/mmcblk0p1/cmdline3.txt	#add startup delay for slow usb drives
-sudo awk '/\/dev/sda1/{$4="auto,users,exec,umask=000"}{print}' /etc/fstab > /etc/fstab	# change sda1 to automatically mout at startup
+# for some reason this isn't working yet
+#sudo awk '//{$10="waitusb=10"}{print}' /mnt/mmcblk0p1/cmdline3.txt > /mnt/mmcblk0p1/cmdline3.txt	#add startup delay for slow usb drives
+
+# change sda1 to automatically mout at startup
+# apperantely the shell won't let you pipe straight to /etc/fstab so write a tmp file
+awk '/\/dev\/sda1/{$4="auto,users,exec,umask=000"}{print}' /etc/fstab > fstab.tmp	
+sudo mv fstab.tmp /etc/fstab
+rm -f fstab.tmp
 
 echo ""
 echo ""
@@ -144,7 +150,8 @@ echo "done ... cleaning up ----------------------------------------------------"
 
 echo "Saving System State  ----------------------------------------------------"
 
-sudo echo "/etc/asound.conf" >> /opt/.filetool.lst
+sudo echo '/etc/fstab' >> /opt/.filetool.lst
+sudo echo '/etc/asound.conf' >> /opt/.filetool.lst
 sudo echo '/usr/local/lib/pd/extra' >> /opt/.filetool.lst
 
 filetool.sh -b
