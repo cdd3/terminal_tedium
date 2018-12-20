@@ -108,7 +108,7 @@ echo "boot/config ... ---------------------------------------------------------"
 mount /dev/mmcblk0p1
 
 sudo cp /mnt/mmcblk0p1/config.txt /mnt/mmcblk0p1/config.txt.old #backup original config.txt
-sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only (still doesn't work, don't know why yet)
+sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only (still doesn't work, don't know why yet maybe vfat?)
 sudo cp $HOME/terminal_tedium/software/config_picore.txt /mnt/mmcblk0p1/config.txt
 
 # for some reason this isn't working yet
