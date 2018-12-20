@@ -69,9 +69,6 @@ echo ""
 
 echo "configuring startup scripts... ------------------------------------------"
 
-sudo chmod +x $HOME/terminal_tedium/software/rt_start
-
-sudo echo "$HOME/terminal_tedium/software/rt_start" >> /opt/bootlocal.sh
 
 sudo cp $HOME/terminal_tedium/software/pdpd $HOME/startpd.sh
 sudo chmod +x $HOME/startpd.sh  
@@ -79,12 +76,14 @@ sudo echo "$HOME/startpd.sh" >> /opt/bootlocal.sh  # run startup script for pd o
 
 
 if [[ "$HARDWARE_VERSION" == 'armv6l' ]]; then
-	sudo cp $HOME/terminal_tedium/software/rt_start_armv6 $HOME/terminal_tedium/software/rt_start
+	cp $HOME/terminal_tedium/software/rt_start_armv6 $HOME/terminal_tedium/software/rt_start
 else
-	sudo cp $HOME/terminal_tedium/software/rt_start_armv7 $HOME/terminal_tedium/software/rt_start
+	cp $HOME/terminal_tedium/software/rt_start_armv7 $HOME/terminal_tedium/software/rt_start
 fi
 
+sudo chmod +x $HOME/terminal_tedium/software/rt_start
 
+sudo echo "$HOME/terminal_tedium/software/rt_start" >> /opt/bootlocal.sh
 
 #echo ""
 #echo ""
@@ -92,15 +91,16 @@ fi
 echo "boot/config ... ---------------------------------------------------------"
 
 #sudo cp /home/pi/terminal_tedium/software/config.txt /boot/config.txt 
+
 #cd $HOME/terminal_tedium/software/
 
-wget https://raw.githubusercontent.com/cdd3/tt_picore_setup/master/config.txt
+#wget https://raw.githubusercontent.com/cdd3/tt_picore_setup/master/config.txt
 
 mount /dev/mmcblk0p1
 
 sudo cp /mnt/mmcblk0p1/config.txt /mnt/mmcblk0p1/config.txt.old #backup original config.txt
 sudo chmod -w /mnt/mmcblk0p1/config.txt.old
-sudo cp config.txt /mnt/mmcblk0p1/config.txt
+sudo cp $HOME/terminal_tedium/software/config_picore.txt /mnt/mmcblk0p1/config.txt
 
 echo ""
 echo ""
@@ -132,7 +132,7 @@ echo "done ... cleaning up ----------------------------------------------------"
 
 echo "Saving System State  ----------------------------------------------------"
 
-sudo echo "$HOME/startpd.sh" >> /opt/.filetool.lst
+#sudo echo "$HOME/startpd.sh" >> /opt/.filetool.lst
 sudo echo "/etc/asound.conf" >> /opt/.filetool.lst
 sudo echo '/usr/local/lib/pd/extra' >> /opt/.filetool.lst
 
