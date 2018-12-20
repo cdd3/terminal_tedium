@@ -23,11 +23,11 @@ fi
 echo ""
 echo "installing required packages ... ----------------------------------------"
 echo ""
-tce-load -iw git
+#tce-load -iw git
 tce-load -iw make
 tce-load -iw gcc
 tce-load -iw compiletc
-#tce-load -iw wget
+tce-load -iw wget
 tce-load -iw tar
 tce-load -iw acl
 tce-load -iw wiringpi
@@ -43,11 +43,11 @@ tce-load -iw firmware-rpi3-wireless
 
 echo ""
 
-echo "cloning terminal tedium github repo ... ---------------------------------"
-echo ""
-cd $HOME 
-rm -r -f $HOME/terminal_tedium >/dev/null 2>&1
-git clone https://github.com/cdd3/terminal_tedium
+echo "copy terminal tedium externals... ---------------------------------------"
+#echo ""
+#cd $HOME 
+#rm -r -f $HOME/terminal_tedium >/dev/null 2>&1
+#git clone https://github.com/cdd3/terminal_tedium
 #cd $HOME/terminal_tedium
 #git pull origin
 
