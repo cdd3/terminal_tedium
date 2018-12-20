@@ -154,7 +154,7 @@ sudo echo '/etc/fstab' >> /opt/.filetool.lst
 sudo echo '/etc/asound.conf' >> /opt/.filetool.lst
 sudo echo '/usr/local/lib/pd/extra' >> /opt/.filetool.lst
 
-filetool.sh -b
+#filetool.sh -b
 
 echo ""
 echo ""
