@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# This is a setup / install script for the terminal tedium eurorack module by mxmxmx
+# it is a modified version of his install script and should be considered a work in progress
+# it will configure a picore linux system to starup puredata from a usb drive
+# more info on the usb drive setup on github
+# this has only been tested on a pi 3 model b attached to a wm8731 version of the TT using picore 9.0.3
+
 echo ""
 echo ""
 echo ""
@@ -36,9 +42,6 @@ tce-load -iw libunistring
 tce-load -iw alsa
 tce-load -iw alsa-utils
 tce-load -iw puredata
-#tce-load -iw wireless_tools
-#tce-load -iw wpa_supplicant
-tce-load -iw firmware-rpi3-wireless
 #tce-load -iw wifi
 
 echo ""
@@ -60,7 +63,7 @@ echo "clone terminal tedium patches... ---------------------------------------"
 echo ""
 cd $HOME 
 rm -r -f $HOME/tt_patches >/dev/null 2>&1
-git clone https://github.com/cdd3/tt_patches
+#git clone https://github.com/cdd3/tt_patches
 #cd $HOME/terminal_tedium
 #git pull origin
 
@@ -92,7 +95,7 @@ sudo chmod +x $HOME/terminal_tedium/software/rt_start
 
 sudo echo "$HOME/terminal_tedium/software/rt_start" >> /opt/bootlocal.sh
 
-cp $HOME/terminal_tedium/software/pdpd $HOME/startpd.sh
+cp $HOME/terminal_tedium/software/pdpd_usb.sh $HOME/startpd.sh
 sudo chmod +x $HOME/startpd.sh  
 
 sudo echo "$HOME/startpd.sh" >> /opt/bootlocal.sh  # run startup script for pd on boot
@@ -105,8 +108,11 @@ echo "boot/config ... ---------------------------------------------------------"
 mount /dev/mmcblk0p1
 
 sudo cp /mnt/mmcblk0p1/config.txt /mnt/mmcblk0p1/config.txt.old #backup original config.txt
-sudo chmod -w /mnt/mmcblk0p1/config.txt.old
+sudo chmod 440 /mnt/mmcblk0p1/config.txt.old	#make backup read-only
 sudo cp $HOME/terminal_tedium/software/config_picore.txt /mnt/mmcblk0p1/config.txt
+
+sudo awk '//{$10="waitusb=10"}{print}' /mnt/mmcblk0p1/cmdline3.txt > /mnt/mmcblk0p1/cmdline3.txt	#add startup delay for slow usb drives
+sudo awk '/\/dev/sda1/{$4="auto,users,exec,umask=000"}{print}' /etc/fstab > /etc/fstab	# change sda1 to automatically mout at startup
 
 echo ""
 echo ""

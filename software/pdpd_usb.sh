@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## start pd
-sudo puredata -nogui -noadc -rt /home/pi/nameofpatch.pd  &
+sudo puredata -nogui -noadc -rt -r 48000 /mnt/sda1/startup/startup.pd  &
 
 
 ## the stuff below is needed only if/when using adc2FUDI:
