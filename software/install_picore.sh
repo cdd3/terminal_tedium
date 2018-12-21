@@ -85,6 +85,8 @@ echo ""
 echo "configuring startup scripts... ------------------------------------------"
 echo ""
 
+sudo echo "mount /dev/sda1" >> /opt/bootlocal.sh  # mount the usb stick 
+
 if [[ "$HARDWARE_VERSION" == 'armv6l' ]]; then
 	cp $HOME/terminal_tedium/software/rt_start_armv6 $HOME/terminal_tedium/software/rt_start
 else
