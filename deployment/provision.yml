@@ -1,0 +1,233 @@
+---
+- name: Provision the Pi 3B+ WM8731 acceptance appliance
+  hosts: terminal_tedium
+  become: true
+  vars:
+    tt_boot_config: /boot/firmware/config.txt
+    tt_gpio_chip: auto
+    tt_release_dir: "/opt/terminal_tedium/releases/{{ tt_release_sha256 }}"
+    tt_boot_begin: '# BEGIN TERMINAL TEDIUM'
+    tt_boot_end: '# END TERMINAL TEDIUM'
+  pre_tasks:
+    - name: Require an explicit trusted artifact and checksum
+      ansible.builtin.assert:
+        that:
+          - tt_release_archive is defined
+          - tt_release_sha256 is defined
+          - tt_release_sha256 is match('^[0-9a-f]{64}$')
+          - ansible_facts.architecture == 'aarch64'
+          - ansible_facts.distribution == 'Debian'
+          - ansible_facts.distribution_major_version == '13'
+          - tt_gpio_chip == 'auto' or tt_gpio_chip is match('^/dev/gpiochip[0-9]+$')
+    - name: Validate the release on the controller before changing the target
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/scripts/check-release.py"
+          - "{{ tt_release_archive }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      register: tt_checked_release
+    - name: Read controller artifact checksum
+      ansible.builtin.stat:
+        path: "{{ tt_release_archive }}"
+        checksum_algorithm: sha256
+      delegate_to: localhost
+      become: false
+      register: tt_archive_stat
+    - name: Verify the supplied checksum
+      ansible.builtin.assert:
+        that:
+          - tt_archive_stat.stat.checksum == tt_release_sha256
+    - name: Read device model
+      ansible.builtin.slurp:
+        src: /proc/device-tree/model
+      register: tt_model
+    - name: Restrict this initial deployment to the tested hardware
+      ansible.builtin.assert:
+        that:
+          - "'Raspberry Pi 3 Model B Plus' in (tt_model.content | b64decode)"
+    - name: Decode release manifest
+      ansible.builtin.set_fact:
+        tt_manifest: "{{ tt_checked_release.stdout | from_json }}"
+  tasks:
+    - name: Install runtime packages at the builder's Pd version
+      ansible.builtin.apt:
+        name:
+          - "puredata-core={{ tt_manifest.pd_version }}"
+          - "puredata-common={{ tt_manifest.pd_version }}"
+          - alsa-utils
+          - python3
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+    - name: Read installed Pd version
+      ansible.builtin.command:
+        argv: [dpkg-query, '-W', '-f=${Version}', puredata-core]
+      changed_when: false
+      register: tt_installed_pd
+    - name: Verify Pd ABI package version
+      ansible.builtin.assert:
+        that:
+          - tt_installed_pd.stdout == tt_manifest.pd_version
+    - name: Create device access groups
+      ansible.builtin.group:
+        name: "{{ item }}"
+        system: true
+      loop: [audio, gpio, spi]
+    - name: Create the appliance account
+      ansible.builtin.user:
+        name: tedium
+        system: true
+        home: /var/lib/terminal_tedium
+        create_home: true
+        shell: /usr/sbin/nologin
+        groups: audio,gpio,spi
+        append: true
+    - name: Grant group access to appliance GPIO and SPI devices
+      ansible.builtin.copy:
+        dest: /etc/udev/rules.d/70-terminal-tedium.rules
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+          SUBSYSTEM=="spidev", KERNEL=="spidev0.*", GROUP="spi", MODE="0660"
+      notify: Reload device rules
+    - name: Read firmware configuration
+      ansible.builtin.slurp:
+        src: "{{ tt_boot_config }}"
+      register: tt_boot_original
+    - name: Preserve unrelated firmware settings and normalize owned directives
+      ansible.builtin.set_fact:
+        tt_boot_preserved: >-
+          {{ (tt_boot_original.content | b64decode)
+             | regex_replace('(?ms)^# BEGIN TERMINAL TEDIUM\n.*?^# END TERMINAL TEDIUM\n?', '')
+             | regex_replace('(?m)^[ \t]*(dtparam=audio=(on|off)|dtparam=spi=(on|off)|dtoverlay=proto-codec)[ \t]*(?:\r?\n|$)', '') }}
+    - name: Enable the tested codec and SPI configuration
+      ansible.builtin.copy:
+        dest: "{{ tt_boot_config }}"
+        backup: true
+        content: "{{ tt_boot_preserved | trim }}\n\n{{ tt_boot_begin }}\n[all]\ndtparam=audio=off\ndtparam=spi=on\ndtoverlay=proto-codec\n{{ tt_boot_end }}\n"
+      notify: Reboot for firmware changes
+    - name: Apply boot and permission changes before testing devices
+      ansible.builtin.meta: flush_handlers
+    - name: Create deployment directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /etc/terminal_tedium
+        - /opt/terminal_tedium/releases
+        - "{{ tt_release_dir }}"
+    - name: Transfer the validated release
+      ansible.builtin.copy:
+        src: "{{ tt_release_archive }}"
+        dest: "{{ tt_release_dir }}/release.tar.gz"
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Extract an immutable release
+      ansible.builtin.unarchive:
+        src: "{{ tt_release_dir }}/release.tar.gz"
+        dest: "{{ tt_release_dir }}"
+        remote_src: true
+        owner: root
+        group: root
+        creates: "{{ tt_release_dir }}/.installed"
+    - name: Verify every installed release file against the controller manifest
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - -c
+          - |
+            import hashlib, json, pathlib, sys
+            root = pathlib.Path(sys.argv[1])
+            manifest = json.loads(sys.argv[2])
+            assert json.loads((root / 'manifest.json').read_text()) == manifest
+            for name, digest in manifest['files'].items():
+                path = root / name
+                assert path.is_file() and not path.is_symlink(), name
+                assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, name
+          - "{{ tt_release_dir }}"
+          - "{{ tt_manifest | to_json }}"
+      changed_when: false
+    - name: Mark the fully verified extraction complete
+      ansible.builtin.copy:
+        dest: "{{ tt_release_dir }}/.installed"
+        content: "{{ tt_release_sha256 }}\n"
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Set GPIO selection
+      ansible.builtin.copy:
+        dest: /etc/terminal_tedium/runtime.json
+        owner: root
+        group: root
+        mode: '0644'
+        content: "{{ {'gpio_chip': tt_gpio_chip} | to_nice_json }}\n"
+      notify: Restart appliance
+    - name: Select the validated release
+      ansible.builtin.file:
+        src: "{{ tt_release_dir }}"
+        dest: /opt/terminal_tedium/current
+        state: link
+      notify: Restart appliance
+    - name: Install the runtime service
+      ansible.builtin.template:
+        src: templates/terminal_tedium.service.j2
+        dest: /etc/systemd/system/terminal_tedium.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart appliance
+    - name: Enable and start the acceptance patch
+      ansible.builtin.systemd_service:
+        name: terminal_tedium
+        daemon_reload: true
+        enabled: true
+        state: started
+    - name: Apply runtime changes
+      ansible.builtin.meta: flush_handlers
+    - name: Wait until hardware preparation has handed off to Pd
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - -c
+          - |
+            import pathlib, subprocess
+            pid = subprocess.check_output(['systemctl', 'show', '--property=MainPID', '--value', 'terminal_tedium'], text=True).strip()
+            args = pathlib.Path('/proc/' + pid + '/cmdline').read_bytes().split(b'\0')
+            assert b'-audioadddev' in args and b'hw:CARD=sndrpiproto,DEV=0' in args
+      changed_when: false
+      register: tt_pd_running
+      until: tt_pd_running.rc == 0
+      retries: 20
+      delay: 2
+    - name: Check that the service remains active
+      ansible.builtin.command:
+        argv: [systemctl, is-active, terminal_tedium]
+      changed_when: false
+    - name: Report the required hardware acceptance step
+      ansible.builtin.debug:
+        msg: 'Provisioning completed. Service activity alone does not prove audio or GPIO operation; complete the cold-boot acceptance checklist.'
+  handlers:
+    - name: Reload device rules
+      ansible.builtin.shell: |
+        udevadm control --reload-rules
+        udevadm trigger --subsystem-match=gpio
+        udevadm trigger --subsystem-match=spidev
+      changed_when: true
+    - name: Reboot for firmware changes
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+    - name: Restart appliance
+      ansible.builtin.systemd_service:
+        name: terminal_tedium
+        daemon_reload: true
+        enabled: true
+        state: restarted

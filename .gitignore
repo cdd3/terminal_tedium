@@ -3,3 +3,8 @@
 *.sh~
 *.bak
 *.txt~
+/software/externals/build/
+/dist/
+__pycache__/
+/deployment/inventory.ini
+/deployment/release-vars.yml

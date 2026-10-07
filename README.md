@@ -26,3 +26,12 @@ Here are a few places where you can find Pd patches that others have written for
 - [j-p-higgins' Github repo](https://github.com/j-p-higgins/jh.tt)
 - [North Coast Modular Collective's Github repo](https://github.com/NorthCoastModularCollective/Terminal-Tedium-Pd-Patches)
 - [JMC64 Patches](https://github.com/JMC64/Terminal-Tedium-)
+
+## Debian 13 ARM64 appliance deployment
+
+The initial Pi 3B+ / WM8731 deployment uses a separately built release and
+Ansible to start one bundled acceptance patch at boot. See
+[deployment/README.rst](deployment/README.rst) for building, provisioning,
+acceptance checks, and rollback. The historical installation scripts and
+committed binaries are legacy references; this deployment does not use them.
+

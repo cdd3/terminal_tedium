@@ -16,14 +16,14 @@
  * edit mxmxmx: adapted for mcp3208 / terminal tedium
  *
  * ****************************************************************************/
-#include "m_pd.h"
+#include <m_pd.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __arm__
+#ifdef __linux__
     #include <sys/ioctl.h>
     #include <fcntl.h>
     #include <linux/spi/spidev.h>
@@ -72,13 +72,14 @@ static void terminal_tedium_adc_open(t_terminal_tedium_adc *spi, t_symbol *versi
 
 
     int statusVal = 0;
+    if (spi->spifd >= 0) terminal_tedium_adc_close(spi);
     
     if (strlen(version->s_name) == 0) spi->_version = 0x0; // = wm8731 version
     else spi->_version = 0x1; // = pcm5102a version
 
-    #ifdef __arm__
+    #ifdef __linux__
       // we're using CS1 :
-      spi->spifd =  open("/dev/spidev0.1", O_RDWR); 
+      spi->spifd =  open("/dev/spidev0.1", O_RDWR | O_CLOEXEC); 
 
       if(spi->spifd < 0) {
         statusVal = -1;
@@ -145,14 +146,15 @@ static int terminal_tedium_adc_close(t_terminal_tedium_adc *spi){
       pd_error(spi, "terminal_tedium_adc: device not open");
       return(-1);
     }
-  #ifdef __arm__ 
+  #ifdef __linux__ 
     statusVal = close(spi->spifd);
   #else 
     statusVal = 0x0;
   #endif  
     if(statusVal < 0) {
       pd_error(spi, "terminal_tedium_adc: could not close SPI device");
-      exit(1);
+      spi->spifd = -1;
+      return statusVal;
     }
     outlet_float(spi->x_out9, 0);
     spi->spifd = -1;
@@ -212,7 +214,7 @@ void terminal_tedium_adc_deadband(t_terminal_tedium_adc *spi, t_floatarg d){
  * This function frees the object (destructor).
  * ******************************************************************/
 static void terminal_tedium_adc_free(t_terminal_tedium_adc *spi){
-    if (spi->spifd == 0) {
+    if (spi->spifd >= 0) {
       terminal_tedium_adc_close(spi);
     }
 }
@@ -224,7 +226,7 @@ static void terminal_tedium_adc_free(t_terminal_tedium_adc *spi){
  * ******************************************************************/
 static int terminal_tedium_adc_write_read(t_terminal_tedium_adc *spi, unsigned char *data, int length){
  
-  #ifdef __arm__ 
+  #ifdef __linux__ 
 
     struct spi_ioc_transfer spid[length];
     int i = 0;
@@ -254,15 +256,14 @@ static int terminal_tedium_adc_write_read(t_terminal_tedium_adc *spi, unsigned c
 }
 
 /***********************************************************************
- * mcp3208 enabled external that by default interacts with /dev/spidev0.0 device using
- * terminal_tedium_adc_MODE_0 (MODE 0) (defined in linux/spi/spidev.h), speed = 1MHz &
+ * MCP3208 external on /dev/spidev0.1 using SPI_MODE_0, speed = 4 MHz &
  * bitsPerWord=8.
  *
  * *********************************************************************/
  
 static void terminal_tedium_adc_bang(t_terminal_tedium_adc *spi)
 {
-  #ifdef __arm__ 
+  #ifdef __linux__ 
     if (spi->spifd == -1) {
         pd_error(spi, "device not open %d", spi->spifd);
         return;
@@ -290,7 +291,10 @@ static void terminal_tedium_adc_bang(t_terminal_tedium_adc *spi)
         data[1]  =  a2dChannel<<6;
         data[2]  =  0x00;
 
-        terminal_tedium_adc_write_read(spi, data, 3);
+        if (terminal_tedium_adc_write_read(spi, data, 3) < 0) {
+          terminal_tedium_adc_close(spi);
+          return;
+        }
 
         a2dVal[a2dChannel] += (((data[1] & 0x0f) << 0x08) | data[2]); 
       }
@@ -352,7 +356,7 @@ static t_terminal_tedium_adc *terminal_tedium_adc_new(t_floatarg version){
     spi->x_out7 = outlet_new(&spi->x_obj, gensym("float"));
     spi->x_out8 = outlet_new(&spi->x_obj, gensym("float"));
     spi->x_out9 = outlet_new(&spi->x_obj, gensym("float"));
-    #ifdef __arm__ 
+    #ifdef __linux__ 
       spi->mode = SPI_MODE_0;
     #else
       spi->mode = 0x0;
@@ -364,6 +368,7 @@ static t_terminal_tedium_adc *terminal_tedium_adc_new(t_floatarg version){
     spi->smooth = 1; 
     spi->smooth_shift = 0;
     spi->deadband = 0;
+    memset(spi->a2d, 0, sizeof(spi->a2d));
     return(spi);
 }
 
@@ -371,7 +376,7 @@ static t_terminal_tedium_adc *terminal_tedium_adc_new(t_floatarg version){
 void terminal_tedium_adc_setup(void)
 {
     terminal_tedium_adc_class = class_new(gensym("terminal_tedium_adc"), (t_newmethod)terminal_tedium_adc_new,
-        (t_method)terminal_tedium_adc_free, sizeof(t_terminal_tedium_adc), 0, A_DEFSYM, 0);
+        (t_method)terminal_tedium_adc_free, sizeof(t_terminal_tedium_adc), 0, A_DEFFLOAT, 0);
     class_addmethod(terminal_tedium_adc_class, (t_method)terminal_tedium_adc_open, gensym("open"), 
         A_DEFSYM, 0);
     class_addmethod(terminal_tedium_adc_class, (t_method)terminal_tedium_adc_close, gensym("close"), 
@@ -382,3 +387,4 @@ void terminal_tedium_adc_setup(void)
         A_DEFFLOAT, 0);
     class_addbang(terminal_tedium_adc_class, terminal_tedium_adc_bang);
 }
+

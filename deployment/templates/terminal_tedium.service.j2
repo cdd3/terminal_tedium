@@ -1,0 +1,28 @@
+[Unit]
+Description=Terminal Tedium acceptance patch
+After=sound.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=tedium
+Group=tedium
+SupplementaryGroups=audio gpio spi
+WorkingDirectory=/var/lib/terminal_tedium
+ExecStart=/usr/bin/python3 /opt/terminal_tedium/current/bin/launch.py /etc/terminal_tedium/runtime.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillSignal=SIGINT
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/terminal_tedium
+PrivateTmp=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

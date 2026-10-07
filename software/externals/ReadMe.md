@@ -27,13 +27,27 @@ where GPIO_num = 4, 17, 2, 3, 23, 24, or 25. outputs bang.
 <img src="https://c1.staticflickr.com/5/4213/35410514191_7b3abe0c24_b.jpg" width="50%">
 where GPIO_num = 23, 24, or 25. 
 
-left outlet: time switch is held down (in milliseconds).
+left outlet: nominal 1 ms polling tick count while the switch is held down.
 right outlet: push = < 1 > / release = < 0 >.
 
 ====================================================================================
 
 
-**compile with:**
+**Current Linux build:**
+
+Use `make all check` with Debian's `puredata-dev` headers. The three GPIO
+externals share `libtt_gpio.so`, which must stay alongside their `.pd_linux`
+files. GPIO access uses Linux's character device API; wiringPi is no longer
+required. Set `TT_GPIO_CHIP` to the BCM2835 controller path. See
+[the deployment instructions](../../deployment/README.rst).
+
+Switch hold values count nominal 1 ms Pd polling ticks; they are not measured
+wall-clock milliseconds. Digital input polling can miss short pulses.
+The tested WM8731 jack inputs are GPIO 4, 17, 14, and 27; outputs are GPIO
+16 (A), 12 (B), and 26 (switch LED). GPIO 2 and 3 are retained only for legacy
+object compatibility and conflict with the codec's I2C bus in this deployment.
+
+**Historical compile instructions (superseded):**
 
 `gcc -std=c99 -O3 -Wall -c [name_of_external].c -o [name_of_external].o`
 
@@ -46,3 +60,4 @@ then move things into externals folder, eg:
 **osx_dummies**
 
 same thing, but non-functional ... for use on osx. 
+
