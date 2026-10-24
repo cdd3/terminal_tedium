@@ -47,7 +47,7 @@
     - name: Restrict this initial deployment to the tested hardware
       ansible.builtin.assert:
         that:
-          - "'Raspberry Pi 3 Model B Plus' in (tt_model.content | b64decode)"
+          - "'Raspberry Pi 3 Model B' in (tt_model.content | b64decode)"
     - name: Decode release manifest
       ansible.builtin.set_fact:
         tt_manifest: "{{ tt_checked_release.stdout | from_json }}"
@@ -108,7 +108,7 @@
     - name: Enable the tested codec and SPI configuration
       ansible.builtin.copy:
         dest: "{{ tt_boot_config }}"
-        backup: true
+        backup: false
         content: "{{ tt_boot_preserved | trim }}\n\n{{ tt_boot_begin }}\n[all]\ndtparam=audio=off\ndtparam=spi=on\ndtoverlay=proto-codec\n{{ tt_boot_end }}\n"
       notify: Reboot for firmware changes
     - name: Apply boot and permission changes before testing devices
